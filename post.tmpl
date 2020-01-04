@@ -5,7 +5,9 @@
 	</head>
 	<body>
 		<h1>{{ .Title }}</h1>
+		<div>
 		{{ .Content }}
-		<p>{{ .Date.Format "Jan 04, 2020" }}</p>
+		</div>
+		<p>{{ .Date.Format "Jan 2, 2006" }}</p>
 	</body>
 </html>

@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"html/template"
 	"io/ioutil"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -51,15 +50,17 @@ func main() {
 		data, err := ioutil.ReadAll(file)
 		check(err)
 
+		html, err := convertMarkdownToHTML(data)
+		check(err)
+
 		post := Post{
 			Title:   "Hello world, this is my first post",
 			Date:    time.Now(),
-			Content: string(data),
+			Content: html,
 		}
 
 		postBaseName := strings.Split(postFilename, ".md")[0]
 		postFile, err := os.Create("public/" + postBaseName + ".html")
-		fmt.Println(postFile)
 
 		postTemplate.Execute(postFile, post)
 
