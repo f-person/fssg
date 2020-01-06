@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 )
 
 func isEscaped(md []byte, index int) bool {
-	// this will cause index out of range error
+	// This will cause index out of range error
 	if index-1 < 0 {
 		return false
 	}
@@ -15,15 +16,31 @@ func isEscaped(md []byte, index int) bool {
 
 func convertMarkdownToHTML(md []byte) (string, error) {
 	var html strings.Builder
+	var linkDescription bytes.Buffer
+	var link bytes.Buffer
 
 	inBulletList := false
 	isHeading1 := false
 	isHeading2 := false
 	isDeleted := false
+	isInLinkDescription := false
+	isInLink := false
 
 	for i := 0; i < len(md); i++ {
 		switch md[i] {
 		case '\n':
+			if isInLinkDescription {
+				html.WriteByte('[')
+				html.Write(linkDescription.Bytes())
+				linkDescription.Reset()
+
+				isInLinkDescription = false
+			} else if isInLink {
+				html.WriteByte(']')
+				html.WriteByte('(')
+
+			}
+
 			if inBulletList {
 				if md[i+1] == '*' {
 					html.WriteString("</li>\n")
@@ -41,8 +58,11 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				isHeading2 = false
 				html.WriteString("</h2>\n")
 			}
+
+			html.WriteString("</p>")
 		case '~':
 			if isEscaped(md, i) {
+				html.WriteByte(md[i])
 				break
 			}
 
@@ -57,6 +77,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 			}
 		case '*':
 			if isEscaped(md, i) {
+				html.WriteByte(md[i])
 				break
 			}
 
@@ -67,6 +88,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 			}
 		case '#':
 			if isEscaped(md, i) {
+				html.WriteByte(md[i])
 				break
 			}
 
@@ -84,8 +106,56 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 			if isEscaped(md, i) {
 				html.WriteByte(md[i])
 			}
+		case '[':
+			if isEscaped(md, i) {
+				html.WriteByte(md[i])
+				break
+			}
+
+			isInLinkDescription = true
+		case ']':
+			if isEscaped(md, i) {
+				html.WriteByte(md[i])
+				break
+			}
+
+			if i+1 < len(md) && md[i+1] == '(' {
+				isInLinkDescription = false
+				isInLink = true
+			}
+		case '(':
+			if isEscaped(md, i) {
+				html.WriteByte(md[i])
+			}
+		case ')':
+			if isEscaped(md, i) {
+				html.WriteByte(md[i])
+				break
+			}
+
+			// If before it was in link, it's outside now
+			// Write link and it's description as html
+			if isInLink {
+				html.WriteString("<a href=\"")
+				html.Write(link.Bytes())
+				html.WriteString("\">")
+				html.Write(linkDescription.Bytes())
+				html.WriteString("</a>")
+
+				link.Reset()
+				linkDescription.Reset()
+				isInLink = false
+			}
 		default:
-			html.WriteByte(md[i])
+			if isInLinkDescription {
+				linkDescription.WriteByte(md[i])
+			} else if isInLink {
+				link.WriteByte(md[i])
+			} else if i-1 >= len(md) && md[i-1] == '\n' && !inBulletList {
+				html.WriteString("<p>")
+			} else {
+				html.WriteByte(md[i])
+			}
 		}
 	}
 
