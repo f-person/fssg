@@ -23,7 +23,11 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 	inBulletList := false
 	isHeading1 := false
 	isHeading2 := false
+
 	isDeleted := false
+	isEmphasized := false
+	isStrong := false
+
 	isInLinkDescription := false
 	isInLink := false
 
@@ -50,7 +54,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 			}
 
 			if inBulletList {
-				if md[i+1] == '*' {
+				if i+1 < len(md) && md[i+1] == '*' {
 					html.WriteString("</li>")
 					html.WriteString("<li>")
 				} else {
@@ -77,7 +81,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				break
 			}
 
-			if i+1 <= len(md) && md[i+1] == '~' {
+			if i+1 < len(md) && md[i+1] == '~' {
 				if !isDeleted {
 					isDeleted = true
 					html.WriteString("<del>")
@@ -92,9 +96,29 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				break
 			}
 
-			if !inBulletList && (i-1 < 0 || md[i-1] == '\n') {
+			if inBulletList {
+				break
+			}
+
+			if (i-1 < 0 || md[i-1] == '\n') && (i+1 < len(md) && md[i+1] == ' ') {
 				inBulletList = true
 				html.WriteString("<ul><li>")
+			} else if i+1 < len(md) && md[i+1] == '*' {
+				if !isStrong {
+					isStrong = true
+					html.WriteString("<strong>")
+				} else {
+					isStrong = false
+					html.WriteString("</strong>")
+				}
+			} else if i-1 >= 0 && md[i-1] != '*' {
+				if !isEmphasized {
+					isEmphasized = true
+					html.WriteString("<em>")
+				} else {
+					isEmphasized = false
+					html.WriteString("</em>")
+				}
 			}
 		case '#':
 			if isEscaped(md, i) {
