@@ -19,6 +19,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 	var linkDescription bytes.Buffer
 	var link bytes.Buffer
 
+	isParagraphClosed := false
 	inBulletList := false
 	isHeading1 := false
 	isHeading2 := false
@@ -26,40 +27,50 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 	isInLinkDescription := false
 	isInLink := false
 
+	html.WriteString("<p>")
 	for i := 0; i < len(md); i++ {
 		switch md[i] {
 		case '\n':
 			if isInLinkDescription {
 				html.WriteByte('[')
 				html.Write(linkDescription.Bytes())
-				linkDescription.Reset()
 
 				isInLinkDescription = false
+				linkDescription.Reset()
 			} else if isInLink {
+				html.WriteByte('[')
+				html.Write(linkDescription.Bytes())
 				html.WriteByte(']')
 				html.WriteByte('(')
+				html.Write(link.Bytes())
 
+				isInLink = false
+				link.Reset()
+				linkDescription.Reset()
 			}
 
 			if inBulletList {
 				if md[i+1] == '*' {
-					html.WriteString("</li>\n")
+					html.WriteString("</li>")
 					html.WriteString("<li>")
 				} else {
 					inBulletList = false
-					html.WriteString("</li>\n</ul>\n")
+					html.WriteString("</li></ul>")
 				}
 			}
 
 			if isHeading1 {
 				isHeading1 = false
-				html.WriteString("</h1>\n")
+				html.WriteString("</h1>")
 			} else if isHeading2 {
 				isHeading2 = false
-				html.WriteString("</h2>\n")
+				html.WriteString("</h2>")
 			}
 
-			html.WriteString("</p>")
+			if !isParagraphClosed {
+				html.WriteString("</p>")
+				isParagraphClosed = true
+			}
 		case '~':
 			if isEscaped(md, i) {
 				html.WriteByte(md[i])
@@ -81,10 +92,9 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				break
 			}
 
-			index := i - 1
-			if !inBulletList && (index < 0 || md[i-1] == '\n') {
+			if !inBulletList && (i-1 < 0 || md[i-1] == '\n') {
 				inBulletList = true
-				html.WriteString("\n<ul>\n<li>")
+				html.WriteString("<ul><li>")
 			}
 		case '#':
 			if isEscaped(md, i) {
@@ -92,8 +102,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				break
 			}
 
-			index := i - 1
-			if index < 0 || md[i-1] == '\n' {
+			if i-1 < 0 || md[i-1] == '\n' {
 				if md[i+1] == '#' {
 					isHeading2 = true
 					html.WriteString("<h2>")
@@ -114,21 +123,21 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 
 			isInLinkDescription = true
 		case ']':
-			if isEscaped(md, i) {
+			if isEscaped(md, i) || !isInLinkDescription {
 				html.WriteByte(md[i])
 				break
 			}
 
-			if i+1 < len(md) && md[i+1] == '(' {
+			if i+1 < len(md) && md[i+1] == '(' && isInLinkDescription {
 				isInLinkDescription = false
 				isInLink = true
 			}
 		case '(':
-			if isEscaped(md, i) {
+			if isEscaped(md, i) || !isInLink {
 				html.WriteByte(md[i])
 			}
 		case ')':
-			if isEscaped(md, i) {
+			if isEscaped(md, i) || !isInLink {
 				html.WriteByte(md[i])
 				break
 			}
@@ -146,13 +155,34 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				linkDescription.Reset()
 				isInLink = false
 			}
+		case ' ':
+			if isInLinkDescription {
+				if md[i-1] == ']' {
+					html.WriteByte('[')
+					html.Write(linkDescription.Bytes())
+					html.WriteByte(']')
+					html.WriteByte(md[i])
+
+					isInLinkDescription = false
+					linkDescription.Reset()
+				} else {
+					linkDescription.WriteByte(md[i])
+				}
+			} else {
+				html.WriteByte(md[i])
+			}
 		default:
 			if isInLinkDescription {
 				linkDescription.WriteByte(md[i])
 			} else if isInLink {
 				link.WriteByte(md[i])
-			} else if i-1 >= len(md) && md[i-1] == '\n' && !inBulletList {
-				html.WriteString("<p>")
+			} else if i-1 >= 0 && md[i-1] == '\n' && !inBulletList {
+				if isParagraphClosed {
+					html.WriteString("<p>")
+					isParagraphClosed = false
+				}
+
+				html.WriteByte(md[i])
 			} else {
 				html.WriteByte(md[i])
 			}
