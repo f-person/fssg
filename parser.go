@@ -96,7 +96,7 @@ func convertMarkdownToHTML(md []byte) (string, error) {
 				break
 			}
 
-			if inBulletList {
+			if inBulletList && i-1 > 0 && md[i-1] == '\n' {
 				break
 			}
 
