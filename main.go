@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 )
@@ -18,6 +19,32 @@ func check(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func processPost(postFilename string, postTemplate *template.Template, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	file, err := os.Open("posts/" + postFilename)
+	check(err)
+
+	data, err := ioutil.ReadAll(file)
+	check(err)
+
+	html, err := convertMarkdownToHTML(data)
+	check(err)
+
+	post := Post{
+		Title:   "Hello world, this is my first post",
+		Date:    time.Now(),
+		Content: html,
+	}
+
+	postBaseName := strings.Split(postFilename, ".md")[0]
+	postFile, err := os.Create("public/" + postBaseName + ".html")
+
+	postTemplate.Execute(postFile, post)
+
+	postFile.Close()
 }
 
 func main() {
@@ -43,27 +70,12 @@ func main() {
 	postsDir.Close()
 	check(err)
 
+	var wg sync.WaitGroup
+
 	for _, postFilename := range postFilenames {
-		file, err := os.Open("posts/" + postFilename)
-		check(err)
-
-		data, err := ioutil.ReadAll(file)
-		check(err)
-
-		html, err := convertMarkdownToHTML(data)
-		check(err)
-
-		post := Post{
-			Title:   "Hello world, this is my first post",
-			Date:    time.Now(),
-			Content: html,
-		}
-
-		postBaseName := strings.Split(postFilename, ".md")[0]
-		postFile, err := os.Create("public/" + postBaseName + ".html")
-
-		postTemplate.Execute(postFile, post)
-
-		postFile.Close()
+		wg.Add(1)
+		go processPost(postFilename, postTemplate, &wg)
 	}
+
+	wg.Wait()
 }
