@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"text/template"
@@ -21,10 +22,10 @@ func check(err error) {
 	}
 }
 
-func processPost(postFilename string, postTemplate *template.Template, wg *sync.WaitGroup) {
+func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	file, err := os.Open("posts/" + postFilename)
+	file, err := os.Open(postPath)
 	check(err)
 
 	data, err := ioutil.ReadAll(file)
@@ -39,12 +40,21 @@ func processPost(postFilename string, postTemplate *template.Template, wg *sync.
 		Content: html,
 	}
 
-	postBaseName := strings.Split(postFilename, ".md")[0]
-	postFile, err := os.Create("public/" + postBaseName + ".html")
+	pathParts := strings.Split(postPath, "/")
+	filePath := strings.Join(pathParts[1:], "/")
+	filePathParts := strings.Split(filePath, ".")
 
-	postTemplate.Execute(postFile, post)
+	// TODO decide from where i want to get dirPath: from the file or the title of the post
+	dirPath := strings.Join(filePathParts[:len(filePathParts)-1], ".")
+	publicDirPath := "public/" + dirPath + "/"
+	err = os.Mkdir(publicDirPath, 0755)
+	check(err)
 
-	postFile.Close()
+	publicFile, err := os.Create(publicDirPath + "index.html")
+	check(err)
+
+	postTemplate.Execute(publicFile, post)
+	publicFile.Close()
 }
 
 func main() {
@@ -58,24 +68,35 @@ func main() {
 			panic(err)
 		}
 	} else {
-		os.RemoveAll("public")
-		os.Mkdir("public", 0755)
+		err := os.RemoveAll("public")
+		check(err)
+
+		err = os.Mkdir("public", 0755)
+		check(err)
 	}
 
 	postTemplate := template.Must(template.ParseFiles("post.tmpl"))
-
-	postsDir, err := os.Open("posts")
-	check(err)
-	postFilenames, err := postsDir.Readdirnames(-1)
-	postsDir.Close()
-	check(err)
-
 	var wg sync.WaitGroup
 
-	for _, postFilename := range postFilenames {
-		wg.Add(1)
-		go processPost(postFilename, postTemplate, &wg)
-	}
+	err := filepath.Walk("./posts/", func(path string, info os.FileInfo, err error) error {
+		if path == "./posts/" {
+			return nil
+		}
+
+		if info.IsDir() {
+			dirParts := strings.Split(path, "posts/")[1:]
+			dirPath := strings.Join(dirParts, "/")
+			publicDirPath := "public/" + dirPath
+			err := os.Mkdir(publicDirPath, 0755)
+			check(err)
+		} else {
+			wg.Add(1)
+			go processPost(path, info, postTemplate, &wg)
+		}
+
+		return err
+	})
+	check(err)
 
 	wg.Wait()
 }
