@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ func isEscaped(md []byte, index int) bool {
 	return md[index-1] == '\\'
 }
 
-func convertMarkdownToHTML(md []byte) (string, error) {
+func ConvertMarkdownToHTML(md []byte) (string, error) {
 	var html strings.Builder
 	var linkDescription bytes.Buffer
 	var link bytes.Buffer

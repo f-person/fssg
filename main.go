@@ -4,10 +4,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/f-person/fssg/parser"
 )
 
 type Post struct {
@@ -31,12 +34,22 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	data, err := ioutil.ReadAll(file)
 	check(err)
 
-	html, err := convertMarkdownToHTML(data)
+	metadata := parser.ParseMetadata(data)
+	if metadata["title"] == "" || metadata["date"] == "" {
+		panic("title and data should not be empty")
+	}
+
+	date, _ := time.Parse("02.01.2006, 15:04", metadata["date"])
+
+	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"])
+	data = data[contentStartsAt:]
+
+	html, err := parser.ConvertMarkdownToHTML(data)
 	check(err)
 
 	post := Post{
-		Title:   "Hello world, this is my first post",
-		Date:    time.Now(),
+		Title:   metadata["title"],
+		Date:    date,
 		Content: html,
 	}
 
