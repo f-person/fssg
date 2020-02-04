@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ type Post struct {
 	Title   string
 	Content string
 	Date    time.Time
+	Link    string
 }
 
 func check(err error) {
@@ -25,7 +27,7 @@ func check(err error) {
 	}
 }
 
-func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template, wg *sync.WaitGroup) {
+func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template, wg *sync.WaitGroup) Post {
 	defer wg.Done()
 
 	file, err := os.Open(postPath)
@@ -68,6 +70,10 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 
 	postTemplate.Execute(publicFile, post)
 	publicFile.Close()
+
+	post.Link = "/" + dirPath
+
+	return post
 }
 
 func main() {
@@ -91,6 +97,8 @@ func main() {
 	postTemplate := template.Must(template.ParseFiles("post.tmpl"))
 	var wg sync.WaitGroup
 
+	var posts []Post
+
 	err := filepath.Walk("./posts/", func(path string, info os.FileInfo, err error) error {
 		if path == "./posts/" {
 			return nil
@@ -104,7 +112,10 @@ func main() {
 			check(err)
 		} else {
 			wg.Add(1)
-			go processPost(path, info, postTemplate, &wg)
+			go func() {
+				post := processPost(path, info, postTemplate, &wg)
+				posts = append(posts, post)
+			}()
 		}
 
 		return err
@@ -112,4 +123,15 @@ func main() {
 	check(err)
 
 	wg.Wait()
+
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].Date.After(posts[j].Date)
+	})
+
+	indexFile, err := os.Create("public/index.html")
+	check(err)
+
+	indexTemplate := template.Must(template.ParseFiles("post_index.tmpl"))
+	err = indexTemplate.Execute(indexFile, posts)
+	check(err)
 }

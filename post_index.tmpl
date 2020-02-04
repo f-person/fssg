@@ -1,0 +1,12 @@
+<html>
+	<head>
+		<title>All blogposts</title>
+		<meta charset='utf-8'/>
+	</head>
+	<body>
+		<h1>Here are all posts</h1>
+		{{range $post := .}}
+			<p><a href="{{ $post.Link }}">{{ $post.Title }}</a> {{ $post.Date.Format "Jan 2, 2006" }} </p>
+		{{end}}
+	</body>
+</html>
