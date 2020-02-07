@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>fpersonal</title>
+    <link>http://localhost:8080/</link>
+    <generator>fssg -- github.com/f-person/fssg</generator>
+    
+	<atom:link href="http://localhost:8080/feed.xml" rel="self" type="application/rss+xml" />
+    
+	{{range $post := .}}
+		<item>
+		  <title>{{ $post.Title }}</title>
+		  <link>{{ $post.Link }}</link>
+		  <pubDate>{{ $post.Date.Format "2006-01-02T15:04:05Z07:00" }}</pubDate>
+		  <guid>{{ $post.Link }}</guid>
+		  <description>{{ $post.Content | safeHTML }}</description>
+		</item>
+    {{end}}
+
+  </channel>
+</rss>

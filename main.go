@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -128,10 +129,34 @@ func main() {
 		return posts[i].Date.After(posts[j].Date)
 	})
 
-	indexFile, err := os.Create("public/index.html")
-	check(err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	indexTemplate := template.Must(template.ParseFiles("post_index.tmpl"))
-	err = indexTemplate.Execute(indexFile, posts)
-	check(err)
+		indexFile, err := os.Create("public/index.html")
+		check(err)
+
+		indexTemplate := template.Must(template.ParseFiles("post_index.tmpl"))
+		err = indexTemplate.Execute(indexFile, posts)
+		check(err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		feedFile, err := os.Create("public/feed.xml")
+		check(err)
+
+		//feedTemplate := template.Must(template.ParseFiles("feed.tmpl"))
+		feedTemplate, err := template.New("feed.tmpl").
+			Funcs(template.FuncMap{"safeHTML": html.EscapeString}).
+			ParseFiles("feed.tmpl")
+		check(err)
+		err = feedTemplate.Execute(feedFile, posts)
+		check(err)
+	}()
+
+	wg.Wait()
+
 }
