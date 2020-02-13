@@ -30,6 +30,7 @@ func ConvertMarkdownToHTML(md []byte) (string, error) {
 
 	isInLinkDescription := false
 	isInLink := false
+	isProbablyImageLink := false
 
 	html.WriteString("<p>")
 	for i := 0; i < len(md); i++ {
@@ -139,6 +140,13 @@ func ConvertMarkdownToHTML(md []byte) (string, error) {
 			if isEscaped(md, i) {
 				html.WriteByte(md[i])
 			}
+		case '!':
+			if isEscaped(md, i) || i+1 > len(md) {
+				html.WriteByte(md[i])
+				break
+			}
+
+			isProbablyImageLink = true
 		case '[':
 			if isEscaped(md, i) {
 				html.WriteByte(md[i])
@@ -169,14 +177,25 @@ func ConvertMarkdownToHTML(md []byte) (string, error) {
 			// If before it was in link, it's outside now
 			// Write link and it's description as html
 			if isInLink {
-				html.WriteString("<a href=\"")
-				html.Write(link.Bytes())
-				html.WriteString("\">")
-				html.Write(linkDescription.Bytes())
-				html.WriteString("</a>")
-
+				if isProbablyImageLink {
+					html.WriteString("<img src=\"")
+					html.Write(link.Bytes())
+					html.WriteString("\" alt=\"")
+					html.Write(linkDescription.Bytes())
+					html.WriteByte('"')
+					html.WriteString(" title=\"")
+					html.Write(linkDescription.Bytes())
+					html.WriteString("\">")
+				} else {
+					html.WriteString("<a href=\"")
+					html.Write(link.Bytes())
+					html.WriteString("\">")
+					html.Write(linkDescription.Bytes())
+					html.WriteString("</a>")
+				}
 				link.Reset()
 				linkDescription.Reset()
+				isProbablyImageLink = false
 				isInLink = false
 			}
 		case ' ':
