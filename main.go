@@ -60,7 +60,7 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	filePath := strings.Join(pathParts[1:], "/")
 	filePathParts := strings.Split(filePath, ".")
 
-	// TODO decide from where i want to get dirPath: from the file or the title of the post
+	// TODO decide from where i want to get dirPath: from the filename or the title of the post
 	dirPath := strings.Join(filePathParts[:len(filePathParts)-1], ".")
 	publicDirPath := "public/" + dirPath + "/"
 	err = os.Mkdir(publicDirPath, 0755)
@@ -95,7 +95,7 @@ func main() {
 		check(err)
 	}
 
-	postTemplate := template.Must(template.ParseFiles("post.tmpl"))
+	postTemplate := template.Must(template.ParseFiles("theme/post.tmpl"))
 	var wg sync.WaitGroup
 
 	var posts []Post
@@ -136,7 +136,7 @@ func main() {
 		indexFile, err := os.Create("public/index.html")
 		check(err)
 
-		indexTemplate := template.Must(template.ParseFiles("post_index.tmpl"))
+		indexTemplate := template.Must(template.ParseFiles("theme/post_index.tmpl"))
 		err = indexTemplate.Execute(indexFile, posts)
 		check(err)
 	}()
@@ -148,10 +148,9 @@ func main() {
 		feedFile, err := os.Create("public/feed.xml")
 		check(err)
 
-		//feedTemplate := template.Must(template.ParseFiles("feed.tmpl"))
 		feedTemplate, err := template.New("feed.tmpl").
 			Funcs(template.FuncMap{"safeHTML": html.EscapeString}).
-			ParseFiles("feed.tmpl")
+			ParseFiles("theme/feed.tmpl")
 		check(err)
 		err = feedTemplate.Execute(feedFile, posts)
 		check(err)
