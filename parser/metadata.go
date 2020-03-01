@@ -5,22 +5,22 @@ import (
 	"strings"
 )
 
-func ParseMetadata(md []byte) map[string]string {
+func (p *Parser) ParseMetadata() map[string]string {
 	metadata := make(map[string]string)
 
-	if !(len(md) > 4 && string(md[:4]) == "---\n") {
+	if !(len(p.MD) > 4 && string(p.MD[:4]) == "---\n") {
 		return metadata
 	}
 
 	var lineContent strings.Builder
-	md = md[4:]
-	for i := 0; i < len(md); i++ {
-		if md[i] == '-' && i+4 < len(md) && string(md[i:i+4]) == "---\n" {
+	p.MD = p.MD[4:]
+	for i := 0; i < len(p.MD); i++ {
+		if p.MD[i] == '-' && i+4 < len(p.MD) && string(p.MD[i:i+4]) == "---\n" {
 			metadata["contentStartsAt"] = strconv.Itoa(i + 8) // two "---\n"-s excluded
 			break
 		}
 
-		if md[i] == '\n' {
+		if p.MD[i] == '\n' {
 			lineParts := strings.Split(lineContent.String(), ":")
 			key := strings.TrimSpace(lineParts[0])
 			value := strings.Join(lineParts[1:], ":")
@@ -28,7 +28,7 @@ func ParseMetadata(md []byte) map[string]string {
 			metadata[key] = value
 			lineContent.Reset()
 		} else {
-			lineContent.WriteByte(md[i])
+			lineContent.WriteByte(p.MD[i])
 		}
 	}
 

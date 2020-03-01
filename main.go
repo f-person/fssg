@@ -37,7 +37,9 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	data, err := ioutil.ReadAll(file)
 	check(err)
 
-	metadata := parser.ParseMetadata(data)
+	parser := parser.Parser{MD: data}
+
+	metadata := parser.ParseMetadata()
 	if metadata["title"] == "" || metadata["date"] == "" {
 		panic("title and data should not be empty")
 	}
@@ -46,8 +48,6 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 
 	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"])
 	data = data[contentStartsAt:]
-
-	parser := parser.Parser{MD: data}
 
 	html, err := parser.ConvertMarkdownToHTML()
 	check(err)
@@ -62,7 +62,6 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	filePath := strings.Join(pathParts[1:], "/")
 	filePathParts := strings.Split(filePath, ".")
 
-	// TODO decide from where i want to get dirPath: from the filename or the title of the post
 	dirPath := strings.Join(filePathParts[:len(filePathParts)-1], ".")
 	publicDirPath := "public/" + dirPath + "/"
 	err = os.Mkdir(publicDirPath, 0755)

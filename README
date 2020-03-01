@@ -1,7 +1,10 @@
-the project is not complete/usable yet.
+one of the features of the project is having no
+external dependencies.
 
-one of it's features is having no dependencies.
-it uses it's own markdown-like markup language (parser),
-which currently supports links, emphasized & strong text,
-heading 1, heading 2 and unordered lists.
-adding support for code blocks and metadata is in plans.
+it has its own markdown-like markup language (parser),
+which currently supports links, images, emphasized & strong text,
+heading 1, heading 2, unordered & bullet lists.
+
+it also generates an RSS/Atom feed.
+
+adding support for code blocks to the parser is planned.
