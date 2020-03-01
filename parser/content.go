@@ -2,235 +2,272 @@ package parser
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 )
 
-func isEscaped(md []byte, index int) bool {
+type Parser struct {
+	MD   []byte
+	html strings.Builder
+
+	linkDescription bytes.Buffer
+	link            bytes.Buffer
+
+	isParagraphClosed bool
+	isHeading1        bool
+	isHeading2        bool
+
+	inBulletList bool
+	inNumberList bool
+
+	isDeleted    bool
+	isEmphasized bool
+	isStrong     bool
+
+	isInLinkDescription bool
+	isInLink            bool
+	isProbablyImageLink bool
+}
+
+func (p *Parser) isEscaped(index int) bool {
 	// This will cause index out of range error
 	if index-1 < 0 {
 		return false
 	}
 
-	return md[index-1] == '\\'
+	return p.MD[index-1] == '\\'
 }
 
-func ConvertMarkdownToHTML(md []byte) (string, error) {
-	var html strings.Builder
-	var linkDescription bytes.Buffer
-	var link bytes.Buffer
+func (p *Parser) defaultCase(i int) {
+	if p.isInLinkDescription {
+		p.linkDescription.WriteByte(p.MD[i])
+	} else if p.isInLink {
+		p.link.WriteByte(p.MD[i])
+	} else if i-1 >= 0 && p.MD[i-1] == '\n' && !p.inBulletList {
+		if p.isParagraphClosed {
+			p.html.WriteString("<p>")
+			p.isParagraphClosed = false
+		}
 
-	isParagraphClosed := false
-	inBulletList := false
-	isHeading1 := false
-	isHeading2 := false
+		p.html.WriteByte(p.MD[i])
+	} else {
+		p.html.WriteByte(p.MD[i])
+	}
+}
 
-	isDeleted := false
-	isEmphasized := false
-	isStrong := false
-
-	isInLinkDescription := false
-	isInLink := false
-	isProbablyImageLink := false
-
-	html.WriteString("<p>")
-	for i := 0; i < len(md); i++ {
-		switch md[i] {
+func (p *Parser) ConvertMarkdownToHTML() (string, error) {
+	p.html.WriteString("<p>")
+	for i := 0; i < len(p.MD); i++ {
+		switch p.MD[i] {
 		case '\n':
-			if isInLinkDescription {
-				html.WriteByte('[')
-				html.Write(linkDescription.Bytes())
+			if p.isInLinkDescription {
+				p.html.WriteByte('[')
+				p.html.Write(p.linkDescription.Bytes())
 
-				isInLinkDescription = false
-				linkDescription.Reset()
-			} else if isInLink {
-				html.WriteByte('[')
-				html.Write(linkDescription.Bytes())
-				html.WriteByte(']')
-				html.WriteByte('(')
-				html.Write(link.Bytes())
+				p.isInLinkDescription = false
+				p.linkDescription.Reset()
+			} else if p.isInLink {
+				p.html.WriteByte('[')
+				p.html.Write(p.linkDescription.Bytes())
+				p.html.WriteByte(']')
+				p.html.WriteByte('(')
+				p.html.Write(p.link.Bytes())
 
-				isInLink = false
-				link.Reset()
-				linkDescription.Reset()
+				p.isInLink = false
+				p.link.Reset()
+				p.linkDescription.Reset()
 			}
 
-			if inBulletList {
-				if i+1 < len(md) && md[i+1] == '*' {
-					html.WriteString("</li>")
-					html.WriteString("<li>")
+			if p.inBulletList || p.inNumberList {
+				if i+1 < len(p.MD) && (p.MD[i+1] == '*' || (p.MD[i+1] >= '0' && p.MD[i+1] <= '9')) {
+					p.html.WriteString("</li>")
+					p.html.WriteString("<li>")
+
+					if p.inNumberList {
+						for i < len(p.MD) && (p.MD[i+1] == ' ' || p.MD[i+1] == '.' || (p.MD[i+1] >= '0' && p.MD[i+1] <= '9')) {
+							i++
+						}
+					}
 				} else {
-					inBulletList = false
-					html.WriteString("</li></ul>")
+					if p.inBulletList {
+						p.inBulletList = false
+						p.html.WriteString("</li></ul>")
+					} else {
+						p.inNumberList = false
+						p.html.WriteString("</li></ol>")
+					}
 				}
 			}
 
-			if isHeading1 {
-				isHeading1 = false
-				html.WriteString("</h1>")
-			} else if isHeading2 {
-				isHeading2 = false
-				html.WriteString("</h2>")
+			if p.isHeading1 {
+				p.isHeading1 = false
+				p.html.WriteString("</h1>")
+			} else if p.isHeading2 {
+				p.isHeading2 = false
+				p.html.WriteString("</h2>")
 			}
 
-			if !isParagraphClosed {
-				html.WriteString("</p>")
-				isParagraphClosed = true
+			if !p.isParagraphClosed {
+				p.html.WriteString("</p>")
+				p.isParagraphClosed = true
 			}
 		case '~':
-			if isEscaped(md, i) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			if i+1 < len(md) && md[i+1] == '~' {
-				if !isDeleted {
-					isDeleted = true
-					html.WriteString("<del>")
+			if i+1 < len(p.MD) && p.MD[i+1] == '~' {
+				if !p.isDeleted {
+					p.isDeleted = true
+					p.html.WriteString("<del>")
 				} else {
-					isDeleted = false
-					html.WriteString("</del>")
+					p.isDeleted = false
+					p.html.WriteString("</del>")
 				}
 			}
 		case '*':
-			if isEscaped(md, i) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			if inBulletList && i-1 > 0 && md[i-1] == '\n' {
+			if p.inBulletList && i-1 > 0 && p.MD[i-1] == '\n' {
 				break
 			}
 
-			if (i-1 < 0 || md[i-1] == '\n') && (i+1 < len(md) && md[i+1] == ' ') {
-				inBulletList = true
-				html.WriteString("<ul><li>")
-			} else if i+1 < len(md) && md[i+1] == '*' {
-				if !isStrong {
-					isStrong = true
-					html.WriteString("<strong>")
+			if (i-1 < 0 || p.MD[i-1] == '\n') && (i+1 < len(p.MD) && p.MD[i+1] == ' ') {
+				p.inBulletList = true
+				p.html.WriteString("<ul><li>")
+			} else if i+1 < len(p.MD) && p.MD[i+1] == '*' {
+				if !p.isStrong {
+					p.isStrong = true
+					p.html.WriteString("<strong>")
 				} else {
-					isStrong = false
-					html.WriteString("</strong>")
+					p.isStrong = false
+					p.html.WriteString("</strong>")
 				}
-			} else if i-1 >= 0 && md[i-1] != '*' {
-				if !isEmphasized {
-					isEmphasized = true
-					html.WriteString("<em>")
+			} else if i-1 >= 0 && p.MD[i-1] != '*' {
+				if !p.isEmphasized {
+					p.isEmphasized = true
+					p.html.WriteString("<em>")
 				} else {
-					isEmphasized = false
-					html.WriteString("</em>")
+					p.isEmphasized = false
+					p.html.WriteString("</em>")
 				}
 			}
 		case '#':
-			if isEscaped(md, i) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			if i-1 < 0 || md[i-1] == '\n' {
-				if md[i+1] == '#' {
-					isHeading2 = true
-					html.WriteString("<h2>")
+			if i-1 < 0 || p.MD[i-1] == '\n' {
+				if p.MD[i+1] == '#' {
+					p.isHeading2 = true
+					p.html.WriteString("<h2>")
 				} else {
-					isHeading1 = true
-					html.WriteString("<h1>")
+					p.isHeading1 = true
+					p.html.WriteString("<h1>")
 				}
 			}
 		case '\\':
-			if isEscaped(md, i) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) {
+				p.html.WriteByte(p.MD[i])
 			}
 		case '!':
-			if isEscaped(md, i) || i+1 > len(md) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) || i+1 > len(p.MD) {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			isProbablyImageLink = true
+			p.isProbablyImageLink = true
 		case '[':
-			if isEscaped(md, i) {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			isInLinkDescription = true
+			p.isInLinkDescription = true
 		case ']':
-			if isEscaped(md, i) || !isInLinkDescription {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) || !p.isInLinkDescription {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
-			if i+1 < len(md) && md[i+1] == '(' && isInLinkDescription {
-				isInLinkDescription = false
-				isInLink = true
+			if i+1 < len(p.MD) && p.MD[i+1] == '(' && p.isInLinkDescription {
+				p.isInLinkDescription = false
+				p.isInLink = true
 			}
 		case '(':
-			if isEscaped(md, i) || !isInLink {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) || !p.isInLink {
+				p.html.WriteByte(p.MD[i])
 			}
 		case ')':
-			if isEscaped(md, i) || !isInLink {
-				html.WriteByte(md[i])
+			if p.isEscaped(i) || !p.isInLink {
+				p.html.WriteByte(p.MD[i])
 				break
 			}
 
 			// If before it was in link, it's outside now
 			// Write link and it's description as html
-			if isInLink {
-				if isProbablyImageLink {
-					html.WriteString("<img src=\"")
-					html.Write(link.Bytes())
-					html.WriteString("\" alt=\"")
-					html.Write(linkDescription.Bytes())
-					html.WriteByte('"')
-					html.WriteString(" title=\"")
-					html.Write(linkDescription.Bytes())
-					html.WriteString("\">")
+			if p.isInLink {
+				if p.isProbablyImageLink {
+					p.html.WriteString("<img src=\"")
+					p.html.Write(p.link.Bytes())
+					p.html.WriteString("\" alt=\"")
+					p.html.Write(p.linkDescription.Bytes())
+					p.html.WriteByte('"')
+					p.html.WriteString(" title=\"")
+					p.html.Write(p.linkDescription.Bytes())
+					p.html.WriteString("\">")
 				} else {
-					html.WriteString("<a href=\"")
-					html.Write(link.Bytes())
-					html.WriteString("\">")
-					html.Write(linkDescription.Bytes())
-					html.WriteString("</a>")
+					p.html.WriteString("<a href=\"")
+					p.html.Write(p.link.Bytes())
+					p.html.WriteString("\">")
+					p.html.Write(p.linkDescription.Bytes())
+					p.html.WriteString("</a>")
 				}
-				link.Reset()
-				linkDescription.Reset()
-				isProbablyImageLink = false
-				isInLink = false
+				p.link.Reset()
+				p.linkDescription.Reset()
+				p.isProbablyImageLink = false
+				p.isInLink = false
 			}
 		case ' ':
-			if isInLinkDescription {
-				if md[i-1] == ']' {
-					html.WriteByte('[')
-					html.Write(linkDescription.Bytes())
-					html.WriteByte(']')
-					html.WriteByte(md[i])
+			if p.isInLinkDescription {
+				if p.MD[i-1] == ']' {
+					p.html.WriteByte('[')
+					p.html.Write(p.linkDescription.Bytes())
+					p.html.WriteByte(']')
+					p.html.WriteByte(p.MD[i])
 
-					isInLinkDescription = false
-					linkDescription.Reset()
+					p.isInLinkDescription = false
+					p.linkDescription.Reset()
 				} else {
-					linkDescription.WriteByte(md[i])
+					p.linkDescription.WriteByte(p.MD[i])
 				}
 			} else {
-				html.WriteByte(md[i])
+				p.html.WriteByte(p.MD[i])
+			}
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			if p.inNumberList && i-1 > 0 && p.MD[i-1] == '\n' {
+				break
+			}
+
+			if (i-1 < 0 || p.MD[i-1] == '\n') && (i+1 < len(p.MD) && p.MD[i+1] == '.') {
+				p.inNumberList = true
+				p.html.WriteString("<ol><li>")
+				for i < len(p.MD) && (p.MD[i] == ' ' || p.MD[i] == '.' || (p.MD[i] >= '0' && p.MD[i] <= '9')) {
+					fmt.Println(string(p.MD[i]), string(p.MD[i+1]))
+					i++
+				}
+			} else {
+				p.defaultCase(i)
 			}
 		default:
-			if isInLinkDescription {
-				linkDescription.WriteByte(md[i])
-			} else if isInLink {
-				link.WriteByte(md[i])
-			} else if i-1 >= 0 && md[i-1] == '\n' && !inBulletList {
-				if isParagraphClosed {
-					html.WriteString("<p>")
-					isParagraphClosed = false
-				}
-
-				html.WriteByte(md[i])
-			} else {
-				html.WriteByte(md[i])
-			}
+			p.defaultCase(i)
 		}
 	}
 
-	return html.String(), nil
+	return p.html.String(), nil
 }

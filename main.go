@@ -47,7 +47,9 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"])
 	data = data[contentStartsAt:]
 
-	html, err := parser.ConvertMarkdownToHTML(data)
+	parser := parser.Parser{MD: data}
+
+	html, err := parser.ConvertMarkdownToHTML()
 	check(err)
 
 	post := Post{
