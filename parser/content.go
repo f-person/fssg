@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 )
 
@@ -258,7 +257,6 @@ func (p *Parser) ConvertMarkdownToHTML() (string, error) {
 				p.inNumberList = true
 				p.html.WriteString("<ol><li>")
 				for i < len(p.MD) && (p.MD[i] == ' ' || p.MD[i] == '.' || (p.MD[i] >= '0' && p.MD[i] <= '9')) {
-					fmt.Println(string(p.MD[i]), string(p.MD[i+1]))
 					i++
 				}
 			} else {

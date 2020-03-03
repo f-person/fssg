@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
-func (p *Parser) ParseMetadata() map[string]string {
-	metadata := make(map[string]string)
+func (p *Parser) ParseMetadata() map[string]interface{} {
+	metadata := make(map[string]interface{})
 
 	if !(len(p.MD) > 4 && string(p.MD[:4]) == "---\n") {
+		metadata["contentStartsAt"] = "0"
+
 		return metadata
 	}
 

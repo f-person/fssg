@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"html"
 	"io/ioutil"
 	"os"
@@ -16,10 +17,11 @@ import (
 )
 
 type Post struct {
-	Title   string
-	Content string
-	Date    time.Time
-	Link    string
+	Title    string
+	Content  string
+	Date     time.Time
+	Link     string
+	Metadata map[string]interface{}
 }
 
 func check(err error) {
@@ -39,30 +41,37 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 
 	parser := parser.Parser{MD: data}
 
+	pathParts := strings.Split(postPath, "/")
+	filePath := strings.Join(pathParts[1:], "/")
+	filePathParts := strings.Split(filePath, ".")
+	dirPath := strings.Join(filePathParts[:len(filePathParts)-1], ".")
+
 	metadata := parser.ParseMetadata()
-	if metadata["title"] == "" || metadata["date"] == "" {
-		panic("title and data should not be empty")
+	if metadata["title"] == nil {
+		metadata["title"] = dirPath
 	}
 
-	date, _ := time.Parse("02.01.2006, 15:04", metadata["date"])
-
-	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"])
+	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"].(string))
 	data = data[contentStartsAt:]
 
 	html, err := parser.ConvertMarkdownToHTML()
 	check(err)
 
 	post := Post{
-		Title:   metadata["title"],
-		Date:    date,
-		Content: html,
+		Title:    metadata["title"].(string),
+		Content:  html,
+		Metadata: metadata,
 	}
 
-	pathParts := strings.Split(postPath, "/")
-	filePath := strings.Join(pathParts[1:], "/")
-	filePathParts := strings.Split(filePath, ".")
+	if metadata["date"] != nil {
+		date, err := time.Parse("02.01.2006, 15:04", metadata["date"].(string))
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			post.Date = date
+		}
+	}
 
-	dirPath := strings.Join(filePathParts[:len(filePathParts)-1], ".")
 	publicDirPath := "public/" + dirPath + "/"
 	err = os.Mkdir(publicDirPath, 0755)
 	check(err)
@@ -70,7 +79,10 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	publicFile, err := os.Create(publicDirPath + "index.html")
 	check(err)
 
-	postTemplate.Execute(publicFile, post)
+	err = postTemplate.Execute(publicFile, post)
+	if err != nil {
+		fmt.Println(err)
+	}
 	publicFile.Close()
 
 	post.Link = "/" + dirPath

@@ -5,7 +5,9 @@
 	</head>
 	<body>
 		<h1>{{ .Title }}</h1>
+		{{if .Metadata.date}}
 		<small>{{ .Date.Format "Jan 2, 2006" }}</small>
+		{{end}}
 		<div>
 		{{ .Content }}
 		</div>
