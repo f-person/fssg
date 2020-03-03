@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/f-person/fssg/parser"
+	"github.com/f-person/fssg/utils"
 )
 
 type Post struct {
@@ -67,9 +68,12 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 		date, err := time.Parse("02.01.2006, 15:04", metadata["date"].(string))
 		if err != nil {
 			fmt.Println(err)
-		} else {
-			post.Date = date
+			post.Date = time.Now()
 		}
+
+		post.Date = date
+	} else {
+		post.Date = time.Now()
 	}
 
 	publicDirPath := "public/" + dirPath + "/"
@@ -91,29 +95,23 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 }
 
 func main() {
-	// Create directory "public" if it does not exist
-	// otherwise create after recursively deleting.
-	if _, err := os.Stat("public"); err != nil {
-		if os.IsNotExist(err) {
-			err := os.Mkdir("public", 0755)
-			check(err)
-		} else {
-			panic(err)
-		}
-	} else {
-		err := os.RemoveAll("public")
-		check(err)
-
-		err = os.Mkdir("public", 0755)
-		check(err)
-	}
+	err := utils.CreateDir("public")
+	check(err)
 
 	postTemplate := template.Must(template.ParseFiles("theme/post.tmpl"))
 	var wg sync.WaitGroup
 
+	go func() {
+		wg.Add(1)
+		err := utils.CopyDir("static", "public/static")
+		check(err)
+
+		defer wg.Done()
+	}()
+
 	var posts []Post
 
-	err := filepath.Walk("./posts/", func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk("./posts/", func(path string, info os.FileInfo, err error) error {
 		if path == "./posts/" {
 			return nil
 		}

@@ -1,2 +1,5 @@
 posts/
 public/
+
+static/*
+!static/style.css
