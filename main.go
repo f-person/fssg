@@ -31,9 +31,7 @@ func check(err error) {
 	}
 }
 
-func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template, wg *sync.WaitGroup) Post {
-	defer wg.Done()
-
+func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template) Post {
 	file, err := os.Open(postPath)
 	check(err)
 
@@ -101,12 +99,13 @@ func main() {
 	postTemplate := template.Must(template.ParseFiles("theme/post.tmpl"))
 	var wg sync.WaitGroup
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
+		defer wg.Done()
+
 		err := utils.CopyDir("static", "public/static")
 		check(err)
-
-		defer wg.Done()
+		fmt.Println("copied the \"static\" directory")
 	}()
 
 	var posts []Post
@@ -125,7 +124,12 @@ func main() {
 		} else {
 			wg.Add(1)
 			go func() {
-				post := processPost(path, info, postTemplate, &wg)
+				defer wg.Done()
+
+				post := processPost(path, info, postTemplate)
+
+				fmt.Printf("processed %v\n", post.Title)
+
 				posts = append(posts, post)
 			}()
 		}
@@ -139,6 +143,7 @@ func main() {
 	sort.Slice(posts, func(i, j int) bool {
 		return posts[i].Date.After(posts[j].Date)
 	})
+	fmt.Println("sorted posts")
 
 	wg.Add(1)
 	go func() {
@@ -150,6 +155,8 @@ func main() {
 		indexTemplate := template.Must(template.ParseFiles("theme/post_index.tmpl"))
 		err = indexTemplate.Execute(indexFile, posts)
 		check(err)
+
+		fmt.Println("created the post index")
 	}()
 
 	wg.Add(1)
@@ -165,8 +172,9 @@ func main() {
 		check(err)
 		err = feedTemplate.Execute(feedFile, posts)
 		check(err)
+
+		fmt.Println("created the rss/atom feed")
 	}()
 
 	wg.Wait()
-
 }
