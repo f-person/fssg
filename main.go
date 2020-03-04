@@ -53,7 +53,7 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	}
 
 	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"].(string))
-	data = data[contentStartsAt:]
+	parser.MD = parser.MD[contentStartsAt:]
 
 	html, err := parser.ConvertMarkdownToHTML()
 	check(err)

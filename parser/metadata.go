@@ -18,7 +18,7 @@ func (p *Parser) ParseMetadata() map[string]interface{} {
 	p.MD = p.MD[4:]
 	for i := 0; i < len(p.MD); i++ {
 		if p.MD[i] == '-' && i+4 < len(p.MD) && string(p.MD[i:i+4]) == "---\n" {
-			metadata["contentStartsAt"] = strconv.Itoa(i + 8) // two "---\n"-s excluded
+			metadata["contentStartsAt"] = strconv.Itoa(i + 5) // exclude "---\n\n"
 			break
 		}
 
