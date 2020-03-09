@@ -5,9 +5,12 @@
 		<meta charset='utf-8'/>
 	</head>
 	<body>
-		<h1>Here are all posts</h1>
+		<h1>index</h1>
 		{{range $post := .}}
 			<p><a href="{{ $post.Link }}">{{ $post.Title }}</a> {{ $post.Date.Format "Jan 2, 2006" }} </p>
 		{{end}}
+		<div class="footer">
+			<a href="/feed.xml">rss</a>
+		</div>
 	</body>
 </html>

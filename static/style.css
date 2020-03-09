@@ -11,3 +11,11 @@ a {
 a:hover {
     color: #5982c1;
 }
+
+.footer {
+    position: fixed;
+    left: 1%;
+    bottom: 1%;
+    width: 100%;
+    font-size: 18px;
+}
