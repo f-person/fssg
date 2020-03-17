@@ -19,11 +19,12 @@ import (
 const dateFormat = "02.01.2006, 15:04"
 
 type Post struct {
-	Title    string
-	Content  string
-	Date     time.Time
-	Link     string
-	Metadata map[string]interface{}
+	Title           string
+	Content         string
+	Date            time.Time
+	PublicationDate time.Time
+	Link            string
+	Metadata        map[string]interface{}
 }
 
 func check(err error) {
@@ -75,13 +76,6 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	contentStartsAt, _ := metadata["contentStartsAt"].(int)
 	parser.MD = parser.MD[contentStartsAt:]
 
-	if metadata["published"] == nil {
-		metadata["published"] = time.Now().Format(dateFormat)
-		sourceMetadata, contentStartsAt := getMetadataAsInSource(metadata)
-		ioutil.WriteFile(postPath, append([]byte(sourceMetadata), parser.MD...), 0755)
-		metadata["contentStartsAt"] = contentStartsAt
-	}
-
 	html, err := parser.ConvertMarkdownToHTML()
 	check(err)
 
@@ -89,6 +83,21 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 		Title:    metadata["title"].(string),
 		Content:  html,
 		Metadata: metadata,
+	}
+
+	if metadata["published"] == nil {
+		now := time.Now()
+		metadata["published"] = now.Format(dateFormat)
+		sourceMetadata, contentStartsAt := getMetadataAsInSource(metadata)
+		ioutil.WriteFile(postPath, append([]byte(sourceMetadata), parser.MD...), 0755)
+		metadata["contentStartsAt"] = contentStartsAt
+		post.PublicationDate = now
+	} else {
+		post.PublicationDate, err = time.Parse(dateFormat, metadata["published"].(string))
+		if err != nil {
+			fmt.Println(err)
+			post.PublicationDate = time.Now()
+		}
 	}
 
 	if metadata["date"] != nil {
@@ -99,8 +108,6 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 		}
 
 		post.Date = date
-	} else {
-		post.Date = time.Now()
 	}
 
 	publicDirPath := "public/" + dirPath + "/"
@@ -170,7 +177,17 @@ func main() {
 	wg.Wait()
 
 	sort.Slice(posts, func(i, j int) bool {
-		return posts[i].Date.After(posts[j].Date)
+		iDate := posts[i].Date
+		jDate := posts[j].Date
+
+		if iDate.IsZero() {
+			iDate = posts[i].PublicationDate
+		}
+		if jDate.IsZero() {
+			jDate = posts[j].PublicationDate
+		}
+
+		return iDate.After(jDate)
 	})
 
 	wg.Add(1)

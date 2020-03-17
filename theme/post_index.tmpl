@@ -7,7 +7,7 @@
 	<body>
 		<h1>index</h1>
 		{{range $post := .}}
-			<p><a href="{{ $post.Link }}">{{ $post.Title }}</a> {{ $post.Date.Format "Jan 2, 2006" }} </p>
+			<p><a href="{{ $post.Link }}">{{ $post.Title }}</a> {{if .Metadata.date}} {{ $post.Date.Format "Jan 2, 2006" }} {{end}} </p>
 		{{end}}
 		<div class="footer">
 			<a href="/feed.xml">rss</a>
