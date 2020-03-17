@@ -96,6 +96,8 @@ func (p *Parser) ConvertMarkdownToHTML() (string, error) {
 						p.html.WriteString("</li></ol>")
 					}
 				}
+
+				break
 			}
 
 			if p.isHeading1 {
@@ -106,7 +108,9 @@ func (p *Parser) ConvertMarkdownToHTML() (string, error) {
 				p.html.WriteString("</h2>")
 			}
 
-			if !p.isParagraphClosed {
+			if len(p.MD)-1 > 0 && p.MD[i-1] != '\n' {
+				p.html.WriteString("<br/>")
+			} else if !p.isParagraphClosed {
 				p.html.WriteString("</p>")
 				p.isParagraphClosed = true
 			}
