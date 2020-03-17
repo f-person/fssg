@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -16,6 +15,8 @@ import (
 	"github.com/f-person/fssg/parser"
 	"github.com/f-person/fssg/utils"
 )
+
+const dateFormat = "02.01.2006, 15:04"
 
 type Post struct {
 	Title    string
@@ -29,6 +30,27 @@ func check(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// getMetadata return metadata in the same format, in which it's stored in a post file
+func getMetadataAsInSource(metadata map[string]interface{}) (string, int) {
+	var md strings.Builder
+	md.Write([]byte("---\n"))
+
+	delete(metadata, "contentStartsAt")
+	contentStartsAt := 0
+
+	for k, v := range metadata {
+		line := fmt.Sprintf("%v: %v\n", k, v)
+		md.WriteString(line)
+		contentStartsAt += len(line)
+	}
+
+	md.Write([]byte("---\n\n"))
+	contentStartsAt += 9
+	metadata["contentStartsAt"] = contentStartsAt
+
+	return md.String(), contentStartsAt
 }
 
 func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.Template) Post {
@@ -50,8 +72,15 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 		metadata["title"] = dirPath
 	}
 
-	contentStartsAt, _ := strconv.Atoi(metadata["contentStartsAt"].(string))
+	contentStartsAt, _ := metadata["contentStartsAt"].(int)
 	parser.MD = parser.MD[contentStartsAt:]
+
+	if metadata["published"] == nil {
+		metadata["published"] = time.Now().Format(dateFormat)
+		sourceMetadata, contentStartsAt := getMetadataAsInSource(metadata)
+		ioutil.WriteFile(postPath, append([]byte(sourceMetadata), parser.MD...), 0755)
+		metadata["contentStartsAt"] = contentStartsAt
+	}
 
 	html, err := parser.ConvertMarkdownToHTML()
 	check(err)
@@ -63,7 +92,7 @@ func processPost(postPath string, postInfo os.FileInfo, postTemplate *template.T
 	}
 
 	if metadata["date"] != nil {
-		date, err := time.Parse("02.01.2006, 15:04", metadata["date"].(string))
+		date, err := time.Parse(dateFormat, metadata["date"].(string))
 		if err != nil {
 			fmt.Println(err)
 			post.Date = time.Now()

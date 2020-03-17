@@ -1,15 +1,12 @@
 package parser
 
-import (
-	"strconv"
-	"strings"
-)
+import "strings"
 
 func (p *Parser) ParseMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if !(len(p.MD) > 4 && string(p.MD[:4]) == "---\n") {
-		metadata["contentStartsAt"] = "0"
+		metadata["contentStartsAt"] = 0
 
 		return metadata
 	}
@@ -18,7 +15,7 @@ func (p *Parser) ParseMetadata() map[string]interface{} {
 	p.MD = p.MD[4:]
 	for i := 0; i < len(p.MD); i++ {
 		if p.MD[i] == '-' && i+4 < len(p.MD) && string(p.MD[i:i+4]) == "---\n" {
-			metadata["contentStartsAt"] = strconv.Itoa(i + 5) // exclude "---\n\n"
+			metadata["contentStartsAt"] = i + 5 // exclude "---\n\n"
 			break
 		}
 
