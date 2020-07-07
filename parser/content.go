@@ -83,7 +83,9 @@ func (p *Parser) ConvertMarkdownToHTML() (string, error) {
 					p.html.WriteString("<li>")
 
 					if p.inNumberList {
-						for i < len(p.MD) && (p.MD[i+1] == ' ' || p.MD[i+1] == '.' || (p.MD[i+1] >= '0' && p.MD[i+1] <= '9')) {
+						for i < len(p.MD) &&
+							(p.MD[i+1] == ' ' || p.MD[i+1] == '.' ||
+								(p.MD[i+1] >= '0' && p.MD[i+1] <= '9')) {
 							i++
 						}
 					}
@@ -108,7 +110,7 @@ func (p *Parser) ConvertMarkdownToHTML() (string, error) {
 				p.html.WriteString("</h2>")
 			}
 
-			if len(p.MD)-1 > 0 && p.MD[i-1] != '\n' {
+			if len(p.MD)-1 > 0 {
 				p.html.WriteString("<br/>")
 			} else if !p.isParagraphClosed {
 				p.html.WriteString("</p>")
